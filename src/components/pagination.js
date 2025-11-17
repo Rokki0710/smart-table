@@ -1,56 +1,62 @@
-import {getPages} from "../lib/utils.js";
+import { getPages } from "../lib/utils.js";
 
-export const initPagination = ({pages, fromRow, toRow, totalRows}, createPage) => {
-    // @todo: #2.3 — подготовить шаблон кнопки для страницы и очистить контейнер
-    const pageTemplate = pages.firstElementChild.cloneNode(true);
-    pages.firstElementChild.remove();
+export const initPagination = (
+  { pages, fromRow, toRow, totalRows },
+  createPage
+) => {
+  // @todo: #2.3 — подготовить шаблон кнопки для страницы и очистить контейнер
+  const pageTemplate = pages.firstElementChild.cloneNode(true); // в качестве шаблона берём первый элемент из контейнера со страницами
+  pages.firstElementChild.remove(); // и удаляем его (предполагаем, что там больше ничего, как вариант, можно и всё удалить из pages)
 
-    let pageCount;
+  let pageCount;
 
-    const applyPagination = (query, state, action) => {
-        const limit = state.rowsPerPage;
-        let page = state.page;
+  const applyPagination = (query, state, action) => {
+    const limit = state.rowsPerPage;
+    let page = state.page;
 
-        // @todo: #2.6 — обработать действия
-        if (action) switch(action.name) {
-            case 'prev': page = Math.max(1, page - 1); break;
-            case 'next': page = page + 1; break;
-            case 'first': page = 1; break;
-            case 'last': page = pageCount || 1; break;
-        }
+    // переносим код, который делали под @todo: #2.6
+    if (action)
+      switch (action.name) {
+        case "prev":
+          page = Math.max(1, page - 1);
+          break; // переход на предыдущую страницу
+        case "next":
+          page = Math.min(pageCount, page + 1);
+          break; // переход на следующую страницу
+        case "first":
+          page = 1;
+          break; // переход на первую страницу
+        case "last":
+          page = pageCount;
+          break; // переход на последнюю страницу
+      }
 
-        return Object.assign({}, query, {
-            limit,
-            page
-        });
-    }
+    return Object.assign({}, query, {
+      limit,
+      page,
+    });
+  };
 
-    const updatePagination = (total, { page, limit }) => {
-        pageCount = Math.ceil(total / limit);
+  const updatePagination = (total, { page, limit }) => {
+    pageCount = Math.ceil(total / limit);
 
-        if (pageCount > 0) {
-            page = Math.min(page, pageCount);
-            page = Math.max(page, 1);
-        }
+    // переносим код, который делали под @todo: #2.4
+    const visiblePages = getPages(page, pageCount, 5); // Получим массив страниц, которые нужно показать, выводим только 5 страниц
+    pages.replaceChildren(
+      ...visiblePages.map((pageNumber) => {
+        // перебираем их и создаём для них кнопку
+        const el = pageTemplate.cloneNode(true); // клонируем шаблон, который запомнили ранее
+        return createPage(el, pageNumber, pageNumber === page); // вызываем колбэк из настроек, чтобы заполнить кнопку данными
+      })
+    );
+    // переносим код, который делали под @todo: #2.5 (обратите внимание, что rowsPerPage заменена на limit)
+    fromRow.textContent = (page - 1) * limit + 1; // С какой строки выводим
+    toRow.textContent = Math.min(page * limit, total); // До какой строки выводим, если это последняя страница, то отображаем оставшееся количество
+    totalRows.textContent = total;
+  };
 
-        // @todo: #2.4 — получить список видимых страниц и вывести их
-        const visiblePages = pageCount > 0 ? getPages(page, pageCount, 5) : [1];
-        pages.replaceChildren(...visiblePages.map(pageNumber => {
-            const el = pageTemplate.cloneNode(true);
-            return createPage(el, pageNumber, pageNumber === page);
-        }))
-
-        // @todo: #2.5 — обновить статус пагинации (обратите внимание, что rowsPerPage заменена на limit)
-        const from = (page - 1) * limit + 1;
-        const to = Math.min((page * limit), total);
-        
-        fromRow.textContent = total > 0 ? from : 0;
-        toRow.textContent = total > 0 ? to : 0;
-        totalRows.textContent = total;
-    }
-
-    return {
-        updatePagination,
-        applyPagination
-    };
-}
+  return {
+    updatePagination,
+    applyPagination,
+  };
+};
